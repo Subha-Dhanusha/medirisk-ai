@@ -1,0 +1,30 @@
+# Virtual Environment
+venv/
+env/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Data (large files)
+data/raw/
+data/processed/
+
+# Models (large files)
+models/*.joblib
+models/*.pkl
+
+# Environment variables
+.env
+
+# MLflow
+mlflow/mlruns/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
