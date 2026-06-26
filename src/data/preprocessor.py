@@ -1,3 +1,5 @@
+# src/data/preprocessor.py
+
 import pandas as pd
 import numpy as np
 import logging
@@ -50,6 +52,36 @@ def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def map_diag(code):
+    try:
+        code = str(code).strip()
+        if code in ['?', 'Unknown', 'nan']:
+            return 0
+        if code.startswith('E') or code.startswith('V'):
+            return 18
+        c = float(code)
+        if 390 <= c <= 459 or c == 785:
+            return 1   # Circulatory
+        elif 460 <= c <= 519 or c == 786:
+            return 2   # Respiratory
+        elif 520 <= c <= 579 or c == 787:
+            return 3   # Digestive
+        elif 250 <= c <= 250.99:
+            return 4   # Diabetes
+        elif 800 <= c <= 999:
+            return 5   # Injury
+        elif 710 <= c <= 739:
+            return 6   # Musculoskeletal
+        elif 580 <= c <= 629 or c == 788:
+            return 7   # Genitourinary
+        elif 140 <= c <= 239:
+            return 8   # Neoplasms
+        else:
+            return 0
+    except:
+        return 0
+
+
 def encode_categorical_columns(df: pd.DataFrame) -> pd.DataFrame:
     binary_map = {
         'gender': {'Male': 1, 'Female': 0, 'Unknown/Invalid': 0},
@@ -68,11 +100,36 @@ def encode_categorical_columns(df: pd.DataFrame) -> pd.DataFrame:
     if 'age' in df.columns:
         df['age'] = df['age'].map(age_mapping)
 
+    # Map diagnosis codes to disease categories
+    for diag_col in ['diag_1', 'diag_2', 'diag_3']:
+        if diag_col in df.columns:
+            df[diag_col] = df[diag_col].apply(map_diag)
+
+    # One-hot encode race
+    if 'race' in df.columns:
+        df = pd.get_dummies(df, columns=['race'], drop_first=True)
+
+    # Encode medication columns: No=0, Steady=1, Up=2, Down=3
+    med_cols = [
+        'metformin', 'repaglinide', 'nateglinide', 'chlorpropamide',
+        'glimepiride', 'acetohexamide', 'glipizide', 'glyburide',
+        'tolbutamide', 'pioglitazone', 'rosiglitazone', 'acarbose',
+        'miglitol', 'troglitazone', 'tolazamide', 'insulin',
+        'glyburide-metformin', 'glipizide-metformin',
+        'glimepiride-pioglitazone', 'metformin-rosiglitazone',
+        'metformin-pioglitazone'
+    ]
+    med_map = {'No': 0, 'Steady': 1, 'Up': 2, 'Down': 3}
+    for col in med_cols:
+        if col in df.columns:
+            df[col] = df[col].map(med_map).fillna(0)
+
+    # Drop any remaining object columns
     remaining_cats = df.select_dtypes(include=['object']).columns.tolist()
     remaining_cats = [c for c in remaining_cats if c != 'readmitted']
     if remaining_cats:
-        df = pd.get_dummies(df, columns=remaining_cats, drop_first=True)
-        logger.info(f"One-hot encoded: {remaining_cats}")
+        logger.info(f"Dropping remaining categoricals: {remaining_cats}")
+        df = df.drop(columns=remaining_cats)
 
     return df
 
